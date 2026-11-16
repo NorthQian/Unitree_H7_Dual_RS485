@@ -1,0 +1,22 @@
+# ================= Keil MDK 编译中间产物 =================
+# 目标文件 / 依赖文件 / 链接输入
+*.o
+*.d
+*.crf
+*.dep
+*.lnp
+*.sct
+
+# 列表、映射、构建报告（每次编译重新生成）
+*.lst
+*.map
+*.htm
+
+# ================= 输出文件夹（保留） =================
+# MDK-ARM/Unitree_H7_Dual_RS485/ 中的 .axf / .hex 等最终固件产物保留，不忽略
+!MDK-ARM/Unitree_H7_Dual_RS485/*.axf
+!MDK-ARM/Unitree_H7_Dual_RS485/*.hex
+
+# ================= VS Code =================
+.vscode/
+*.code-workspace
