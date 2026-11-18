@@ -43,8 +43,8 @@ void extract_data(MotorData_t *motor_r)
 		motor_r->correct = 0;
 		return;
 	}
-	motor_r->calc_crc = crc_ccitt(0, (uint8_t *)&motor_r->motor_recv_data, sizeof(RIS_MotorData_t) - sizeof(motor_r->motor_recv_data.CRC16));
-	if (motor_r->motor_recv_data.CRC16 != motor_r->calc_crc)
+	uint16_t calc_crc = crc_ccitt(0, (uint8_t *)&motor_r->motor_recv_data, sizeof(RIS_MotorData_t) - sizeof(motor_r->motor_recv_data.CRC16));
+	if (motor_r->motor_recv_data.CRC16 != calc_crc)
 	{
 		memset(&motor_r->motor_recv_data, 0, sizeof(RIS_MotorData_t));
 		motor_r->correct = 0;
@@ -60,7 +60,6 @@ void extract_data(MotorData_t *motor_r)
 		motor_r->W = ((float)motor_r->motor_recv_data.fbk.speed / 256.0f) * 6.28318f;
 		motor_r->T = ((float)motor_r->motor_recv_data.fbk.torque) / 256.0f;
 		motor_r->Pos = 6.28318f * ((float)motor_r->motor_recv_data.fbk.pos) / 32768.0f;
-		motor_r->footForce = motor_r->motor_recv_data.fbk.force;
 		motor_r->correct = 1;
 		return;
 	}

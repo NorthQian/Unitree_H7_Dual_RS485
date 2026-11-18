@@ -107,10 +107,7 @@ typedef struct
     float W;                // 当前实际电机速度(电机本身的速度)(rad/s)
     float Pos;              // 当前电机位置(rad)
     int correct;            // 接收数据是否完整(1完整，0不完整)
-    int footForce;          // 足端力传感器原始数值
 
-    uint16_t calc_crc;
-    uint32_t timeout;       // 通讯超时 数量
     uint32_t bad_msg;       // CRC校验错误 数量
     RIS_MotorData_t motor_recv_data; // 电机接收数据结构体
 

@@ -25,6 +25,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "motor_task.h"
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,7 +46,12 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+static uint32_t demo_tick  = 0U;
+static uint8_t  demo_phase = 0U;
 
+/* 速度模式正弦参数：输出轴速度幅值 (rad/s) 与频率 (Hz) */
+#define DEMO_VEL_AMP   6.28f
+#define DEMO_VEL_FREQ  0.25f
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,10 +100,10 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   MotorTask_Init();                                  /* 初始化电机 + 开启 DMA 接收 */
-  HAL_Delay(1000);   /* 等待电机上电初始化完成 */
+  HAL_Delay(3000); 
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);  /* 打开电机电源 */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, GPIO_PIN_SET);  /* 打开电机电源 */
-  
+  HAL_Delay(3000);   /* 等待电机上电初始化完成 */
   
   /* USER CODE END 2 */
 
@@ -108,7 +114,26 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    HAL_Delay(1);
+    uint32_t now = HAL_GetTick();
+
+    if ((now - demo_tick) >= 1U)        /* 1 kHz */
+    {
+      demo_tick = now;
+
+      /* 速度模式，官方推荐参数：q = 0，kp = 0，kd = 0.01，tau = 0。
+         输出轴速度 = 6.28 * sin(2*pi*0.25*t) rad/s。
+         注意：协议里的 dq 是电机(转子)侧速度，所以要乘减速比 6.33。 */
+      float t   = (float)now * 0.001f;
+      float vel = DEMO_VEL_AMP * MOTOR_GEAR_RATIO
+                * sinf(6.28318f * DEMO_VEL_FREQ * t);
+
+      (void)MotorTask_SendMit(0U, 0.0f, vel, 0.0f, 0.01f, 0.0f);
+
+      /* 其余电机同理；同一路总线上两帧要错开时间（ID 0/1 在 USART2，2/3 在 USART3）
+         (void)MotorTask_SendMit(1U, 0.0f, vel, 0.0f, 0.01f, 0.0f);
+         (void)MotorTask_SendMit(2U, 0.0f, vel, 0.0f, 0.01f, 0.0f);
+         (void)MotorTask_SendMit(3U, 0.0f, vel, 0.0f, 0.01f, 0.0f); */
+    }
   }
   /* USER CODE END 3 */
 }

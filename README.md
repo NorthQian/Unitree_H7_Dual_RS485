@@ -59,37 +59,81 @@ Drivers/                  STM32H7 HAL 驱动与 CMSIS
 
 接收链路：
 
-1. `MotorTask_Init()` 初始化 4 个电机结构体（ID 0~3、FOC 闭环、指令量清零），并分别对 USART2 / USART3 调用 `HAL_UARTEx_ReceiveToIdle_DMA()`，**按固定 16 Byte 长度**开启接收（DMA 为 Normal 模式）；
+1. `MotorTask_Init()` 初始化 4 个电机结构体（ID 0~3、FOC 闭环、指令量清零），并分别对 USART2 / USART3 调用 `HAL_UARTEx_ReceiveToIdle_DMA()`，接收缓冲 64 Byte（DMA 为 Normal 模式）；
 2. 串口空闲/接收完成进入 `HAL_UARTEx_RxEventCallback()`，先判断是哪路串口，再检查：
    - 本次收到的字节数必须是 16；
    - 包头必须是 `0xFD 0xEE`；
    - 帧内 ID 必须属于该串口（USART2：0/1，USART3：2/3）；
-3. 校验通过后调用宇树官方解包函数 `extract_data()`（再校验 CRC，并换算成 `Pos/W/T/Temp/MError` 等物理量）；
+   - 任一不符直接丢弃；
+3. 通过后调用宇树官方解包函数 `extract_data()`（校验 CRC，并换算成 `pos/vel/tor/temp/error`）；CRC 错则 `correct = 0` 且 `rx_bad++`；
 4. Normal 模式 DMA 收完即停，回调里立即重新 arm 接收。
 
 串口出错时经 `HAL_UART_ErrorCallback()` 清 ORE 标志并重启接收。
 
+每个电机对应一个扁平结构体 `Unitree_Motor_t`（`motor[id]`），只存上层用得到的物理量：
+
+```c
+typedef struct
+{
+    uint8_t id;                          /* 电机 ID: 0 ~ 3 */
+
+    float   pos_des, vel_des, tor_des;   /* 指令：rad, rad/s, N.m */
+    float   kp, kd;                      /* 刚度 / 阻尼 */
+    uint8_t mode;                        /* 0 阻尼 / 1 FOC */
+
+    float   pos, vel, tor;               /* 反馈：输出轴侧，pos ∈ [0, 2π) */
+    int8_t  temp;
+    uint8_t error;                       /* MError */
+    uint8_t correct;                     /* 1: 最近一帧反馈有效 */
+    uint32_t rx_bad;                     /* CRC 错误累计 */
+} Unitree_Motor_t;
+```
+
+调试时 watch `motor[0]` 展开即可看到全部信息。17/16 Byte 的原始帧不存进电机结构体，需要时看 `rx_usart2` / `rx_usart3`（最后收到的帧）或 `tx_cmd.motor_send_data`（最后发出的帧）。
+
 ### 对外接口（`motor_task.h`）
 
 ```c
-void         MotorTask_Init(void);           /* 初始化电机 + 开启两路 DMA 接收 */
-MotorData_t *MotorTask_GetData(uint8_t id);  /* 读取电机反馈（id: 0~3） */
-MotorCmd_t  *MotorTask_GetCmd(uint8_t id);   /* 取得指令结构体（发送部分使用） */
+void            MotorTask_Init(void);          /* 初始化电机 + 开启两路 DMA 接收 */
+const Unitree_Motor_t  *MotorTask_GetMotor(uint8_t id);/* 读取电机状态（id: 0~3，只读） */
+
+/* MIT 力位混合发送（阻塞 17 Byte，约 42.5 us/帧） */
+HAL_StatusTypeDef MotorTask_SetMit(uint8_t id, float pos, float vel,
+                                   float kp, float kd, float tq);
+HAL_StatusTypeDef MotorTask_SendMit(uint8_t id, float pos, float vel,
+                                    float kp, float kd, float tq);
+HAL_StatusTypeDef MotorTask_SendAll(void);
 ```
 
 读取反馈示例：
 
 ```c
-MotorData_t *m = MotorTask_GetData(0);
+const Unitree_Motor_t *m = MotorTask_GetMotor(0);
 if (m->correct) {
-    /* m->Pos (rad)、m->W (rad/s)、m->T (N.m)、m->Temp (℃)、m->MError */
+    /* m->pos (rad)、m->vel (rad/s)、m->tor (N.m)、m->temp (℃)、m->error */
 }
 ```
+
+发送 MIT 控制帧（mode 1：力位混合）：
+
+```c
+/* 单个电机：位置 0 rad、速度 0 rad/s、kp=20、kd=0.5、前馈力矩 0 N.m */
+(void)MotorTask_SendMit(0, 0.0f, 0.0f, 20.0f, 0.5f, 0.0f);
+
+/* 只更新缓存，再统一发送（便于多电机同步） */
+(void)MotorTask_SetMit(0, 0.0f, 0.0f, 20.0f, 0.5f, 0.0f);
+(void)MotorTask_SetMit(1, 0.0f, 0.0f, 20.0f, 0.5f, 0.0f);
+(void)MotorTask_SendAll();
+```
+
+- 接口为**阻塞发送**，单帧 17 Byte 在 4 Mbit/s 下约 42.5 us，只能在主循环/线程上下文调用，不要在中断里调用。
+- 发送期间默认关闭接收机（`MOTOR_TX_GATE_RX=1`），防止半双工回显破坏固定 16 Byte 的反馈帧；RX DMA 始终保持 arm，无需手动重开。
+- 同一路总线上两帧需错开时间（建议每总线每 tick 只发一帧，或间隔 ≥200 us），背靠背发送会与上一台电机的反馈帧冲突。
 
 ### 当前进度
 
 - [x] 双路 RS485 DMA 接收、帧校验、官方解包
-- [ ] 控制帧发送（`modify_data()` + `HAL_UART_Transmit` / DMA 发送）
+- [x] 控制帧发送（`modify_data()` + `HAL_UART_Transmit` 阻塞发送，MIT 接口）
 - [ ] 控制循环（轮腿机器人所需的状态机 / PD 控制）
 
 ## 编译与烧录
