@@ -1,6 +1,6 @@
 /**
- * @file    motor_task.c
- * @brief   Unitree GO-M8010-6 电机任务（收发）
+ * @file    Unitree_M8010.c
+ * @brief   Unitree GO-M8010-6 电机驱动（MIT 收发）
  *
  * 数据结构：
  *   每个电机一个 Unitree_Motor_t（motor[id]），只存上层需要的**物理量**：
@@ -18,11 +18,11 @@
  *        再把物理量拷进 motor[id]。
  *
  * 发送思路：
- *   MotorTask_SendMit() 先填 motor[id] 的指令量，再拷进 tx_cmd、modify_data()
+ *   Unitree_M8010_SendMit() 先填 motor[id] 的指令量，再拷进 tx_cmd、modify_data()
  *   打包成 17 Byte，按 ID 选 USART2/USART3 用 HAL_UART_Transmit() 阻塞发送。
  */
 
-#include "motor_task.h"
+#include "Unitree_M8010.h"
 #include "usart.h"
 #include <math.h>
 #include <string.h>
@@ -55,19 +55,19 @@ static uint8_t rx_usart3[MOTOR_RX_BUF_SIZE];     /* USART3：电机 ID 2、3 */
 static MotorCmd_t  tx_cmd;
 
 /* ------------------------------ 私有函数声明 ------------------------------ */
-static void MotorTask_StartRx(UART_HandleTypeDef *huart, uint8_t *buf);
-static void MotorTask_HandleFrame(uint8_t *buf, uint16_t Size, uint8_t id_base);
-static void MotorTask_ErrorRecover(UART_HandleTypeDef *huart, uint8_t *buf);
-static UART_HandleTypeDef *MotorTask_GetUart(uint8_t id);
-static uint8_t MotorTask_ValueValid(float v);
-static HAL_StatusTypeDef MotorTask_Transmit(const Unitree_Motor_t *m);
+static void Unitree_M8010_StartRx(UART_HandleTypeDef *huart, uint8_t *buf);
+static void Unitree_M8010_HandleFrame(uint8_t *buf, uint16_t Size, uint8_t id_base);
+static void Unitree_M8010_ErrorRecover(UART_HandleTypeDef *huart, uint8_t *buf);
+static UART_HandleTypeDef *Unitree_M8010_GetUart(uint8_t id);
+static uint8_t Unitree_M8010_ValueValid(float v);
+static HAL_StatusTypeDef Unitree_M8010_Transmit(const Unitree_Motor_t *m);
 
 /* ------------------------------ 函数实现 ------------------------------ */
 
 /**
  * @brief  初始化电机结构体并开启 USART2、USART3 的 DMA 接收
  */
-void MotorTask_Init(void)
+void Unitree_M8010_Init(void)
 {
     uint8_t i;
 
@@ -84,14 +84,14 @@ void MotorTask_Init(void)
         motor[i].rx_bad  = 0U;
     }
 
-    MotorTask_StartRx(&huart2, rx_usart2);
-    MotorTask_StartRx(&huart3, rx_usart3);
+    Unitree_M8010_StartRx(&huart2, rx_usart2);
+    Unitree_M8010_StartRx(&huart3, rx_usart3);
 }
 
 /**
  * @brief  获取某个电机的状态（只读）
  */
-const Unitree_Motor_t *MotorTask_GetMotor(uint8_t id)
+const Unitree_Motor_t *Unitree_M8010_GetMotor(uint8_t id)
 {
     if (id >= MOTOR_NUM)
     {
@@ -105,7 +105,7 @@ const Unitree_Motor_t *MotorTask_GetMotor(uint8_t id)
 /**
  * @brief  ID 到总线的映射：ID 0/1 -> USART2，ID 2/3 -> USART3
  */
-static UART_HandleTypeDef *MotorTask_GetUart(uint8_t id)
+static UART_HandleTypeDef *Unitree_M8010_GetUart(uint8_t id)
 {
     return (id < MOTOR_BUS_IDS) ? &huart2 : &huart3;
 }
@@ -114,7 +114,7 @@ static UART_HandleTypeDef *MotorTask_GetUart(uint8_t id)
  * @brief  参数合法性：排除 NaN 与 ±Inf
  * @note   modify_data() 的 SATURATE 宏对 NaN 无效（比较恒为假），必须提前拦截
  */
-static uint8_t MotorTask_ValueValid(float v)
+static uint8_t Unitree_M8010_ValueValid(float v)
 {
     return ((v == v) && (v >= -1.0e9f) && (v <= 1.0e9f)) ? 1U : 0U;
 }
@@ -125,9 +125,9 @@ static uint8_t MotorTask_ValueValid(float v)
  *         把固定 16 Byte 的反馈窗口冲乱；RX DMA 全程保持 arm，无需重开。
  *         只能在主循环/线程上下文调用，不可在中断里调用。
  */
-static HAL_StatusTypeDef MotorTask_Transmit(const Unitree_Motor_t *m)
+static HAL_StatusTypeDef Unitree_M8010_Transmit(const Unitree_Motor_t *m)
 {
-    UART_HandleTypeDef *huart = MotorTask_GetUart(m->id);
+    UART_HandleTypeDef *huart = Unitree_M8010_GetUart(m->id);
     HAL_StatusTypeDef st;
 
     /* 物理量 -> 协议层结构体（modify_data 内部做饱和、Q8/Q15 换算和 CRC） */
@@ -157,7 +157,7 @@ static HAL_StatusTypeDef MotorTask_Transmit(const Unitree_Motor_t *m)
 /**
  * @brief  只更新指令缓存，不发送
  */
-HAL_StatusTypeDef MotorTask_SetMit(uint8_t id, float pos, float vel,
+HAL_StatusTypeDef Unitree_M8010_SetMit(uint8_t id, float pos, float vel,
                                    float kp, float kd, float tq)
 {
     Unitree_Motor_t *m;
@@ -166,9 +166,9 @@ HAL_StatusTypeDef MotorTask_SetMit(uint8_t id, float pos, float vel,
     {
         return HAL_ERROR;
     }
-    if ((MotorTask_ValueValid(pos) == 0U) || (MotorTask_ValueValid(vel) == 0U) ||
-        (MotorTask_ValueValid(kp) == 0U)  || (MotorTask_ValueValid(kd) == 0U)  ||
-        (MotorTask_ValueValid(tq) == 0U))
+    if ((Unitree_M8010_ValueValid(pos) == 0U) || (Unitree_M8010_ValueValid(vel) == 0U) ||
+        (Unitree_M8010_ValueValid(kp) == 0U)  || (Unitree_M8010_ValueValid(kd) == 0U)  ||
+        (Unitree_M8010_ValueValid(tq) == 0U))
     {
         return HAL_ERROR;
     }
@@ -186,18 +186,18 @@ HAL_StatusTypeDef MotorTask_SetMit(uint8_t id, float pos, float vel,
 /**
  * @brief  设置并立即发送一个电机的 MIT 指令
  */
-HAL_StatusTypeDef MotorTask_SendMit(uint8_t id, float pos, float vel,
+HAL_StatusTypeDef Unitree_M8010_SendMit(uint8_t id, float pos, float vel,
                                     float kp, float kd, float tq)
 {
-    HAL_StatusTypeDef st = MotorTask_SetMit(id, pos, vel, kp, kd, tq);
+    HAL_StatusTypeDef st = Unitree_M8010_SetMit(id, pos, vel, kp, kd, tq);
 
-    return (st != HAL_OK) ? st : MotorTask_Transmit(&motor[id]);
+    return (st != HAL_OK) ? st : Unitree_M8010_Transmit(&motor[id]);
 }
 
 /**
  * @brief  依次发送 ID 0~3 当前缓存的指令
  */
-HAL_StatusTypeDef MotorTask_SendAll(void)
+HAL_StatusTypeDef Unitree_M8010_SendAll(void)
 {
     HAL_StatusTypeDef st = HAL_OK;
     HAL_StatusTypeDef s;
@@ -205,7 +205,7 @@ HAL_StatusTypeDef MotorTask_SendAll(void)
 
     for (id = 0U; id < MOTOR_NUM; id++)
     {
-        s = MotorTask_Transmit(&motor[id]);
+        s = Unitree_M8010_Transmit(&motor[id]);
         if (s != HAL_OK)
         {
             st = s;            /* 返回第一个错误，但继续发完其余电机 */
@@ -219,7 +219,7 @@ HAL_StatusTypeDef MotorTask_SendAll(void)
  * @param  huart 串口句柄
  * @param  buf   该串口对应的 DMA 接收缓冲
  */
-static void MotorTask_StartRx(UART_HandleTypeDef *huart, uint8_t *buf)
+static void Unitree_M8010_StartRx(UART_HandleTypeDef *huart, uint8_t *buf)
 {
     if (HAL_UARTEx_ReceiveToIdle_DMA(huart, buf, MOTOR_RX_BUF_SIZE) == HAL_OK)
     {
@@ -236,7 +236,7 @@ static void MotorTask_StartRx(UART_HandleTypeDef *huart, uint8_t *buf)
  * @param  id_base 该串口上的起始电机 ID（USART2: 0，USART3: 2，即挂 id_base/id_base+1）
  * @note   长度/包头/ID 任一不符直接丢弃；CRC 由 extract_data() 校验。
  */
-static void MotorTask_HandleFrame(uint8_t *buf, uint16_t Size, uint8_t id_base)
+static void Unitree_M8010_HandleFrame(uint8_t *buf, uint16_t Size, uint8_t id_base)
 {
     MotorData_t rx;              /* 栈上解包 */
     Unitree_Motor_t *m;
@@ -295,7 +295,7 @@ static void MotorTask_HandleFrame(uint8_t *buf, uint16_t Size, uint8_t id_base)
 /**
  * @brief  串口出错后清标志并重启接收
  */
-static void MotorTask_ErrorRecover(UART_HandleTypeDef *huart, uint8_t *buf)
+static void Unitree_M8010_ErrorRecover(UART_HandleTypeDef *huart, uint8_t *buf)
 {
     if ((huart->ErrorCode & HAL_UART_ERROR_ORE) != 0U)
     {
@@ -306,7 +306,7 @@ static void MotorTask_ErrorRecover(UART_HandleTypeDef *huart, uint8_t *buf)
     huart->RxState = HAL_UART_STATE_READY;
     __HAL_UNLOCK(huart);
 
-    MotorTask_StartRx(huart, buf);
+    Unitree_M8010_StartRx(huart, buf);
 }
 
 /**
@@ -316,13 +316,13 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
     if (huart->Instance == USART2)
     {
-        MotorTask_HandleFrame(rx_usart2, Size, 0U);      /* USART2 挂 ID 0/1 */
-        MotorTask_StartRx(&huart2, rx_usart2);           /* 收完即停，必须重新开启 */
+        Unitree_M8010_HandleFrame(rx_usart2, Size, 0U);      /* USART2 挂 ID 0/1 */
+        Unitree_M8010_StartRx(&huart2, rx_usart2);           /* 收完即停，必须重新开启 */
     }
     else if (huart->Instance == USART3)
     {
-        MotorTask_HandleFrame(rx_usart3, Size, 2U);      /* USART3 挂 ID 2/3 */
-        MotorTask_StartRx(&huart3, rx_usart3);
+        Unitree_M8010_HandleFrame(rx_usart3, Size, 2U);      /* USART3 挂 ID 2/3 */
+        Unitree_M8010_StartRx(&huart3, rx_usart3);
     }
 }
 
@@ -333,10 +333,10 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == USART2)
     {
-        MotorTask_ErrorRecover(&huart2, rx_usart2);
+        Unitree_M8010_ErrorRecover(&huart2, rx_usart2);
     }
     else if (huart->Instance == USART3)
     {
-        MotorTask_ErrorRecover(&huart3, rx_usart3);
+        Unitree_M8010_ErrorRecover(&huart3, rx_usart3);
     }
 }

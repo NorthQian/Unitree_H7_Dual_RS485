@@ -618,8 +618,8 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\BSP\Motor\motor_task.c</PathWithFileName>
-      <FilenameWithoutPath>motor_task.c</FilenameWithoutPath>
+      <PathWithFileName>..\BSP\Motor\Unitree_M8010.c</PathWithFileName>
+      <FilenameWithoutPath>Unitree_M8010.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>

@@ -24,7 +24,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "motor_task.h"
+#include "Unitree_M8010.h"
 #include <math.h>
 /* USER CODE END Includes */
 
@@ -49,9 +49,9 @@
 static uint32_t demo_tick  = 0U;
 static uint8_t  demo_phase = 0U;
 
-/* 速度模式正弦参数：输出轴速度幅值 (rad/s) 与频率 (Hz) */
-#define DEMO_VEL_AMP   6.28f
-#define DEMO_VEL_FREQ  0.25f
+/* 位置模式正弦参数：输出轴位置幅值 (rad) 与频率 (Hz) */
+#define DEMO_POS_AMP   6.28f    /* 输出轴 ±1 圈（360°） */
+#define DEMO_POS_FREQ  0.25f    /* 周期 4 s */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -99,7 +99,7 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-  MotorTask_Init();                                  /* 初始化电机 + 开启 DMA 接收 */
+  Unitree_M8010_Init();                                  /* 初始化电机 + 开启 DMA 接收 */
   HAL_Delay(3000); 
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);  /* 打开电机电源 */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, GPIO_PIN_SET);  /* 打开电机电源 */
@@ -120,19 +120,19 @@ int main(void)
     {
       demo_tick = now;
 
-      /* 速度模式，官方推荐参数：q = 0，kp = 0，kd = 0.01，tau = 0。
-         输出轴速度 = 6.28 * sin(2*pi*0.25*t) rad/s。
-         注意：协议里的 dq 是电机(转子)侧速度，所以要乘减速比 6.33。 */
+      /* 位置模式，官方参数：dq = 0，kp = 0.01，kd = 0.01，tau = 0。
+         输出轴位置 = 6.28 * sin(2*pi*0.25*t) rad（±1 圈）。
+         注意：协议里的 q 是电机(转子)侧位置，所以要乘减速比 6.33。 */
       float t   = (float)now * 0.001f;
-      float vel = DEMO_VEL_AMP * MOTOR_GEAR_RATIO
-                * sinf(6.28318f * DEMO_VEL_FREQ * t);
+      float pos = DEMO_POS_AMP * MOTOR_GEAR_RATIO
+                * sinf(6.28318f * DEMO_POS_FREQ * t);
 
-      (void)MotorTask_SendMit(0U, 0.0f, vel, 0.0f, 0.01f, 0.0f);
+      (void)Unitree_M8010_SendMit(0U, pos, 0.0f, 0.01f, 0.01f, 0.0f);
 
       /* 其余电机同理；同一路总线上两帧要错开时间（ID 0/1 在 USART2，2/3 在 USART3）
-         (void)MotorTask_SendMit(1U, 0.0f, vel, 0.0f, 0.01f, 0.0f);
-         (void)MotorTask_SendMit(2U, 0.0f, vel, 0.0f, 0.01f, 0.0f);
-         (void)MotorTask_SendMit(3U, 0.0f, vel, 0.0f, 0.01f, 0.0f); */
+         (void)Unitree_M8010_SendMit(1U, pos, 0.0f, 0.01f, 0.01f, 0.0f);
+         (void)Unitree_M8010_SendMit(2U, pos, 0.0f, 0.01f, 0.01f, 0.0f);
+         (void)Unitree_M8010_SendMit(3U, pos, 0.0f, 0.01f, 0.01f, 0.0f); */
     }
   }
   /* USER CODE END 3 */

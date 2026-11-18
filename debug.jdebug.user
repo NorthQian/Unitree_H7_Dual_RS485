@@ -1,16 +1,22 @@
 
 
-OpenDocument="motor_task.c", FilePath="D:/Unitree_H7_Dual_RS485/BSP/Motor/motor_task.c", Line=235
-OpenDocument="main.c", FilePath="d:/Unitree_H7_Dual_RS485/Core/Src/main.c", Line=136
+GraphedExpression="(motor[0]).pos", Color=#e56a6f
+OpenDocument="motor_task.c", FilePath="d:/Unitree_H7_Dual_RS485/BSP/Motor/motor_task.c", Line=0
+OpenDocument="main.c", FilePath="d:/Unitree_H7_Dual_RS485/Core/Src/main.c", Line=92
 OpenToolbar="Debug", Floating=0, x=0, y=0
-OpenWindow="Memory 1", DockArea=BOTTOM, x=1, y=0, w=1282, h=319, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0, EditorAddress=0x0
-OpenWindow="Watched Data 1", DockArea=RIGHT, x=0, y=0, w=862, h=987, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0, RefreshRate=5
-OpenWindow="Functions", DockArea=LEFT, x=0, y=0, w=300, h=987, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
-OpenWindow="Console", DockArea=BOTTOM, x=0, y=0, w=1277, h=319, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Watched Data 1", DockArea=RIGHT, x=0, y=1, w=1234, h=318, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0, RefreshRate=5
+OpenWindow="Functions", DockArea=LEFT, x=0, y=1, w=300, h=724, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Call Graph", DockArea=LEFT, x=0, y=0, w=300, h=234, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Data Sampling", DockArea=BOTTOM, x=0, y=0, w=1412, h=347, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0, VisibleTab=0, UniformSampleSpacing=0
+OpenWindow="Timeline", DockArea=RIGHT, x=0, y=0, w=1234, h=640, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=1, DataPaneShown=1, PowerPaneShown=0, CodePaneShown=0, PinCursor="Cursor Movable", TimePerDiv="2 s / Div", TimeStampFormat="Time", DataGraphDrawAsPoints=0, DataGraphLegendShown=1, DataGraphUniformSampleSpacing=0, DataGraphLegendPosition="1046;0", DataGraphShowNamesAtCursor=0, PowerGraphDrawAsPoints=0, PowerGraphLegendShown=0, PowerGraphAvgFilterTime=Off, PowerGraphAvgFilterLen=Off, PowerGraphUniformSampleSpacing=0, PowerGraphLegendPosition="1063;0", CodeGraphLegendShown=0, CodeGraphLegendPosition="1069;0"
+OpenWindow="Console", DockArea=BOTTOM, x=1, y=0, w=1147, h=347, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
 SmartViewPlugin="", Page="", Toolbar="Hidden", Window="SmartView 1"
-TableHeader="Functions", SortCol="Name", SortOrder="ASCENDING", VisibleCols=["Name";"Address";"Size";"#Insts";"Source"], ColWidths=[738;77;49;61;176]
-TableHeader="Power Sampling", SortCol="None", SortOrder="ASCENDING", VisibleCols=["Index";"Time";"Ch 0"], ColWidths=[100;100;100]
-TableHeader="Watched Data 1", SortCol="Expression", SortOrder="ASCENDING", VisibleCols=["Expression";"Value";"Location"], ColWidths=[584;42;236]
+TableHeader="Watched Data 1", SortCol="Expression", SortOrder="ASCENDING", VisibleCols=["Refresh";"Expression";"Value";"Location"], ColWidths=[105;584;209;336]
 TableHeader="RegisterSelectionDialog", SortCol="None", SortOrder="ASCENDING", VisibleCols=[], ColWidths=[]
 TableHeader="TargetExceptionDialog", SortCol="Name", SortOrder="ASCENDING", VisibleCols=["Name";"Value";"Address";"Description"], ColWidths=[26;26;26;26]
+TableHeader="Functions", SortCol="Name", SortOrder="ASCENDING", VisibleCols=["Name";"Address";"Size";"#Insts";"Source"], ColWidths=[738;77;49;61;176]
+TableHeader="Data Sampling Table", SortCol="None", SortOrder="ASCENDING", VisibleCols=["Index";"Time";" (motor[0]).pos"], ColWidths=[100;100;100]
+TableHeader="Data Sampling Setup", SortCol="Expression", SortOrder="ASCENDING", VisibleCols=["Expression";"Type";"Value";"Min";"Max";"Average";"# Changes";"Min. Change";"Max. Change"], ColWidths=[98;49;84;98;84;84;79;91;745]
+TableHeader="Power Sampling", SortCol="None", SortOrder="ASCENDING", VisibleCols=["Index";"Time";"Ch 0"], ColWidths=[100;100;110]
+TableHeader="Call Graph", SortCol="Name", SortOrder="ASCENDING", VisibleCols=["Name";"Stack Total";"Stack Local";"Code Total";"Code Local";"Depth";"Called From"], ColWidths=[336;91;91;85;85;56;91]
 WatchedExpression="motor[0]", RefreshState=2, Window=Watched Data 1

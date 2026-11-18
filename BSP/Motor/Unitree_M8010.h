@@ -1,11 +1,11 @@
 /**
- * @file    motor_task.h
- * @brief   Unitree GO-M8010-6 电机任务（收发）
+ * @file    Unitree_M8010.h
+ * @brief   Unitree GO-M8010-6 电机驱动（MIT 收发）
  *          两路 RS485：USART2 挂 ID 0/1，USART3 挂 ID 2/3
  *          DMA + 空闲中断按 16 Byte 接收，回调里直接校验并解析反馈帧
  */
-#ifndef __MOTOR_TASK_H
-#define __MOTOR_TASK_H
+#ifndef __UNITREE_M8010_H
+#define __UNITREE_M8010_H
 
 #include "main.h"
 #include "gom_protocol.h"
@@ -56,13 +56,13 @@ typedef struct
 /**
  * @brief  初始化电机结构体（ID 0~3，FOC 闭环，指令量清零）并开启各路 DMA 接收
  */
-void MotorTask_Init(void);
+void Unitree_M8010_Init(void);
 
 /**
- * @brief  取得某个电机的状态（只读；指令请用 MotorTask_SetMit/SendMit 下发）
+ * @brief  取得某个电机的状态（只读；指令请用 Unitree_M8010_SetMit/SendMit 下发）
  * @param  id 电机 ID (0 ~ MOTOR_NUM-1)，越界返回 NULL
  */
-const Unitree_Motor_t *MotorTask_GetMotor(uint8_t id);
+const Unitree_Motor_t *Unitree_M8010_GetMotor(uint8_t id);
 
 /* ---------------------- 控制帧发送（MIT 力位混合） ---------------------- */
 #define MOTOR_TX_TIMEOUT_MS  2U     /* 17 Byte @4 Mbit/s ≈ 42.5 us，2 ms 余量充足 */
@@ -81,21 +81,21 @@ const Unitree_Motor_t *MotorTask_GetMotor(uint8_t id);
  * @note   协议里的 q/dq/tau 都是**电机(转子)侧**量，关节侧要先换算：
  *         位置/速度 用 MOTOR_JOINT_*_TO_ROTOR()，力矩用 MOTOR_JOINT_TORQUE_TO_ROTOR()
  */
-HAL_StatusTypeDef MotorTask_SetMit(uint8_t id, float pos, float vel,
+HAL_StatusTypeDef Unitree_M8010_SetMit(uint8_t id, float pos, float vel,
                                    float kp, float kd, float tq);
 
 /**
  * @brief  设置并立即发送一个电机的 MIT 指令（最常用接口）
  * @retval HAL_OK / HAL_ERROR / HAL_BUSY / HAL_TIMEOUT
  */
-HAL_StatusTypeDef MotorTask_SendMit(uint8_t id, float pos, float vel,
+HAL_StatusTypeDef Unitree_M8010_SendMit(uint8_t id, float pos, float vel,
                                     float kp, float kd, float tq);
 
 /**
- * @brief  依次发送 ID 0~3 当前缓存的指令（配合 MotorTask_SetMit 做整机周期发送）
+ * @brief  依次发送 ID 0~3 当前缓存的指令（配合 Unitree_M8010_SetMit 做整机周期发送）
  * @warning 同一路总线上两帧背靠背只间隔约 42.5 us，可能与上一台电机的
  *          反馈帧冲突；闭环运行时请把不同电机的发送时间错开。
  */
-HAL_StatusTypeDef MotorTask_SendAll(void);
+HAL_StatusTypeDef Unitree_M8010_SendAll(void);
 
-#endif /* __MOTOR_TASK_H */
+#endif /* __UNITREE_M8010_H */

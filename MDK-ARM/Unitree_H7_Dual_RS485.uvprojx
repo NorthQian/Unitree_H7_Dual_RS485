@@ -607,9 +607,9 @@
               <FilePath>..\BSP\Unitree\gom_protocol.c</FilePath>
             </File>
             <File>
-              <FileName>motor_task.c</FileName>
+              <FileName>Unitree_M8010.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\BSP\Motor\motor_task.c</FilePath>
+              <FilePath>..\BSP\Motor\Unitree_M8010.c</FilePath>
             </File>
           </Files>
         </Group>

@@ -33,8 +33,8 @@ Core/
   Inc/ , Src/             CubeMX 生成的 HAL 初始化代码（main.c、usart.c、dma.c ...）
 BSP/
   Unitree/                宇树官方通信协议（gom_protocol.c/h、crc_ccitt.c/h）
-  Motor/                  电机任务：DMA 接收 + 反馈解析
-    motor_task.c/h
+  Motor/                  GO-M8010-6 驱动：DMA 接收 + MIT 发送
+    Unitree_M8010.c/h
 MDK-ARM/                  Keil MDK 工程，编译输出在 Unitree_H7_Dual_RS485/
 Drivers/                  STM32H7 HAL 驱动与 CMSIS
 ```
@@ -55,11 +55,11 @@ Drivers/                  STM32H7 HAL 驱动与 CMSIS
 
 ## 软件结构
 
-### 电机任务（`BSP/Motor/motor_task.c`）
+### 电机任务（`BSP/Motor/Unitree_M8010.c`）
 
 接收链路：
 
-1. `MotorTask_Init()` 初始化 4 个电机结构体（ID 0~3、FOC 闭环、指令量清零），并分别对 USART2 / USART3 调用 `HAL_UARTEx_ReceiveToIdle_DMA()`，接收缓冲 64 Byte（DMA 为 Normal 模式）；
+1. `Unitree_M8010_Init()` 初始化 4 个电机结构体（ID 0~3、FOC 闭环、指令量清零），并分别对 USART2 / USART3 调用 `HAL_UARTEx_ReceiveToIdle_DMA()`，接收缓冲 64 Byte（DMA 为 Normal 模式）；
 2. 串口空闲/接收完成进入 `HAL_UARTEx_RxEventCallback()`，先判断是哪路串口，再检查：
    - 本次收到的字节数必须是 16；
    - 包头必须是 `0xFD 0xEE`；
@@ -91,24 +91,24 @@ typedef struct
 
 调试时 watch `motor[0]` 展开即可看到全部信息。17/16 Byte 的原始帧不存进电机结构体，需要时看 `rx_usart2` / `rx_usart3`（最后收到的帧）或 `tx_cmd.motor_send_data`（最后发出的帧）。
 
-### 对外接口（`motor_task.h`）
+### 对外接口（`Unitree_M8010.h`）
 
 ```c
-void            MotorTask_Init(void);          /* 初始化电机 + 开启两路 DMA 接收 */
-const Unitree_Motor_t  *MotorTask_GetMotor(uint8_t id);/* 读取电机状态（id: 0~3，只读） */
+void            Unitree_M8010_Init(void);          /* 初始化电机 + 开启两路 DMA 接收 */
+const Unitree_Motor_t  *Unitree_M8010_GetMotor(uint8_t id);/* 读取电机状态（id: 0~3，只读） */
 
 /* MIT 力位混合发送（阻塞 17 Byte，约 42.5 us/帧） */
-HAL_StatusTypeDef MotorTask_SetMit(uint8_t id, float pos, float vel,
+HAL_StatusTypeDef Unitree_M8010_SetMit(uint8_t id, float pos, float vel,
                                    float kp, float kd, float tq);
-HAL_StatusTypeDef MotorTask_SendMit(uint8_t id, float pos, float vel,
+HAL_StatusTypeDef Unitree_M8010_SendMit(uint8_t id, float pos, float vel,
                                     float kp, float kd, float tq);
-HAL_StatusTypeDef MotorTask_SendAll(void);
+HAL_StatusTypeDef Unitree_M8010_SendAll(void);
 ```
 
 读取反馈示例：
 
 ```c
-const Unitree_Motor_t *m = MotorTask_GetMotor(0);
+const Unitree_Motor_t *m = Unitree_M8010_GetMotor(0);
 if (m->correct) {
     /* m->pos (rad)、m->vel (rad/s)、m->tor (N.m)、m->temp (℃)、m->error */
 }
@@ -118,12 +118,12 @@ if (m->correct) {
 
 ```c
 /* 单个电机：位置 0 rad、速度 0 rad/s、kp=20、kd=0.5、前馈力矩 0 N.m */
-(void)MotorTask_SendMit(0, 0.0f, 0.0f, 20.0f, 0.5f, 0.0f);
+(void)Unitree_M8010_SendMit(0, 0.0f, 0.0f, 20.0f, 0.5f, 0.0f);
 
 /* 只更新缓存，再统一发送（便于多电机同步） */
-(void)MotorTask_SetMit(0, 0.0f, 0.0f, 20.0f, 0.5f, 0.0f);
-(void)MotorTask_SetMit(1, 0.0f, 0.0f, 20.0f, 0.5f, 0.0f);
-(void)MotorTask_SendAll();
+(void)Unitree_M8010_SetMit(0, 0.0f, 0.0f, 20.0f, 0.5f, 0.0f);
+(void)Unitree_M8010_SetMit(1, 0.0f, 0.0f, 20.0f, 0.5f, 0.0f);
+(void)Unitree_M8010_SendAll();
 ```
 
 - 接口为**阻塞发送**，单帧 17 Byte 在 4 Mbit/s 下约 42.5 us，只能在主循环/线程上下文调用，不要在中断里调用。
